@@ -3,6 +3,7 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/channel/go.mod services/channel/go.sum ./
 COPY services/pkg/ /pkg/
+RUN go mod tidy
 RUN go mod download
 COPY services/channel/ .
 RUN CGO_ENABLED=0 go build -o /channel-service ./cmd/

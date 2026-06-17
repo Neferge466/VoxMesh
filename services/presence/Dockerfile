@@ -3,6 +3,7 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/presence/go.mod services/presence/go.sum ./
 COPY services/pkg/ /pkg/
+RUN go mod tidy
 RUN go mod download
 COPY services/presence/ .
 RUN CGO_ENABLED=0 go build -o /presence-manager ./cmd/

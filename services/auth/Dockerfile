@@ -3,6 +3,7 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/auth/go.mod services/auth/go.sum ./
 COPY services/pkg/ /pkg/
+RUN go mod tidy
 RUN go mod download
 COPY services/auth/ .
 RUN CGO_ENABLED=0 go build -o /auth-service ./cmd/
