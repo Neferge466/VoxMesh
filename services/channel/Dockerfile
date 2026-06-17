@@ -1,9 +1,9 @@
 FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
-COPY go.mod go.sum ./
+COPY services/channel/go.mod services/channel/go.sum ./
 RUN go mod download
-COPY . .
+COPY services/channel/ .
 RUN CGO_ENABLED=0 go build -o /channel-service ./cmd/
 
 FROM alpine:3.20

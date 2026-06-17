@@ -1,9 +1,9 @@
 FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
-COPY go.mod go.sum ./
+COPY services/auth/go.mod services/auth/go.sum ./
 RUN go mod download
-COPY . .
+COPY services/auth/ .
 RUN CGO_ENABLED=0 go build -o /auth-service ./cmd/
 
 FROM alpine:3.20

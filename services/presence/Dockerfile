@@ -1,9 +1,9 @@
 FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
-COPY go.mod go.sum ./
+COPY services/presence/go.mod services/presence/go.sum ./
 RUN go mod download
-COPY . .
+COPY services/presence/ .
 RUN CGO_ENABLED=0 go build -o /presence-manager ./cmd/
 
 FROM alpine:3.20

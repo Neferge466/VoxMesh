@@ -1,9 +1,9 @@
 FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
-COPY go.mod go.sum ./
+COPY services/command-handler/go.mod services/command-handler/go.sum ./
 RUN go mod download
-COPY . .
+COPY services/command-handler/ .
 RUN CGO_ENABLED=0 go build -o /command-handler ./cmd/
 
 FROM alpine:3.20

@@ -127,8 +127,8 @@ services:
   # ==========================================================================
   auth-service:
     build:
-      context: ./services/auth
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/auth/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
@@ -154,8 +154,8 @@ services:
 
   channel-service:
     build:
-      context: ./services/channel
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/channel/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
@@ -181,8 +181,8 @@ services:
 
   audio-mixer:
     build:
-      context: ./services/audio-mixer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/audio-mixer/Dockerfile
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379/2
@@ -197,8 +197,8 @@ services:
 
   presence-manager:
     build:
-      context: ./services/presence
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/presence/Dockerfile
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379/3
@@ -212,8 +212,8 @@ services:
 
   gateway-coordinator:
     build:
-      context: ./services/gateway-coordinator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/gateway-coordinator/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
@@ -239,8 +239,8 @@ services:
 
   ws-gateway:
     build:
-      context: ./services/ws-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/ws-gateway/Dockerfile
     restart: unless-stopped
     environment:
       AUTH_SERVICE_URL: http://auth-service:8080
@@ -269,8 +269,8 @@ services:
 
   command-handler:
     build:
-      context: ./services/command-handler
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/command-handler/Dockerfile
     restart: unless-stopped
     environment:
       CHANNEL_SERVICE_URL: http://channel-service:8080
@@ -284,8 +284,8 @@ services:
 
   notification-service:
     build:
-      context: ./services/notification
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/notification/Dockerfile
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379/6
