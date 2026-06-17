@@ -1,5 +1,6 @@
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache opus-dev pkgconfig gcc musl-dev
+ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
