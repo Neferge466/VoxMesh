@@ -2,6 +2,7 @@ FROM golang:1.26-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/notification/go.mod services/notification/go.sum ./
+COPY services/pkg/ /pkg/
 RUN go mod download
 COPY services/notification/ .
 RUN CGO_ENABLED=0 go build -o /notification-service ./cmd/
