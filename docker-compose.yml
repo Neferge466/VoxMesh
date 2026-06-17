@@ -84,7 +84,7 @@ services:
       - ./livekit/livekit.yaml:/etc/livekit/livekit.yaml:ro
     network_mode: host
     environment:
-      LIVEKIT_KEYS: ${LIVEKIT_KEYS:-devkey: secret}
+      LIVEKIT_KEYS: "${LIVEKIT_KEYS:-devkey: secret}"
       LIVEKIT_REDIS: redis://127.0.0.1:6379/7
     depends_on:
       redis:
