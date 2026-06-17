@@ -3,9 +3,9 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/ws-gateway/go.mod services/ws-gateway/go.sum ./
 COPY services/pkg/ /pkg/
+COPY services/ws-gateway/ .
 RUN go mod tidy
 RUN go mod download
-COPY services/ws-gateway/ .
 RUN CGO_ENABLED=0 go build -o /ws-gateway ./cmd/
 
 FROM alpine:3.20

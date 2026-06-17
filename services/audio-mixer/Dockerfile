@@ -4,9 +4,9 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/audio-mixer/go.mod services/audio-mixer/go.sum ./
 COPY services/pkg/ /pkg/
+COPY services/audio-mixer/ .
 RUN go mod tidy
 RUN go mod download
-COPY services/audio-mixer/ .
 RUN CGO_ENABLED=1 go build -o /audio-mixer ./cmd/
 
 FROM alpine:3.20

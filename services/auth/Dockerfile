@@ -3,9 +3,9 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/auth/go.mod services/auth/go.sum ./
 COPY services/pkg/ /pkg/
+COPY services/auth/ .
 RUN go mod tidy
 RUN go mod download
-COPY services/auth/ .
 RUN CGO_ENABLED=0 go build -o /auth-service ./cmd/
 
 FROM alpine:3.20

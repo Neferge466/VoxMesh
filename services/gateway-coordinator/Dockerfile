@@ -3,9 +3,9 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /build
 COPY services/gateway-coordinator/go.mod services/gateway-coordinator/go.sum ./
 COPY services/pkg/ /pkg/
+COPY services/gateway-coordinator/ .
 RUN go mod tidy
 RUN go mod download
-COPY services/gateway-coordinator/ .
 RUN CGO_ENABLED=0 go build -o /gateway-coordinator ./cmd/
 
 FROM alpine:3.20
