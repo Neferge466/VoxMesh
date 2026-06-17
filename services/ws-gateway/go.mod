@@ -3,19 +3,18 @@ module github.com/voxmesh/ws-gateway
 go 1.26.4
 
 require (
+	github.com/ansrivas/fiberprometheus/v2 v2.17.0
+	github.com/fasthttp/websocket v1.5.8
+	github.com/gofiber/contrib/websocket v1.3.4
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/gorilla/websocket v1.5.3
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/voxmesh/pkg v0.0.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
-	github.com/ansrivas/fiberprometheus/v2 v2.17.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/fasthttp/websocket v1.5.8 // indirect
-	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -35,7 +34,6 @@ require (
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.69.0 // indirect
-	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.opentelemetry.io/otel v1.40.0 // indirect
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect

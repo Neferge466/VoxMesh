@@ -82,13 +82,16 @@ export function ChatBox() {
     <div className="chat-box">
       <div className="chat-messages">
         {messages.length === 0 && <p className="chat-empty">No messages yet</p>}
-        {messages.map((m, i) => (
-          <div key={`${m.sender}-${m.time}-${i}`} className="chat-msg">
-            <span className="msg-sender">{m.sender}:</span>
-            <span className="msg-content">{m.content}</span>
-            <span className="msg-time">{m.time}</span>
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          const isSelf = user && (m.sender === user.display_name || m.sender === user.username);
+          return (
+            <div key={`${m.sender}-${m.time}-${i}`} className={`chat-msg ${isSelf ? 'chat-self' : ''}`}>
+              <span className="msg-sender">{m.sender}:</span>
+              <span className="msg-content">{m.content}</span>
+              <span className="msg-time">{m.time}</span>
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>

@@ -13,23 +13,10 @@ import (
 	"github.com/voxmesh/pkg/db"
 	voxmqtt "github.com/voxmesh/pkg/mqtt"
 
+	"github.com/voxmesh/audio-mixer/internal/codec"
 	grpcserver "github.com/voxmesh/audio-mixer/internal/grpc"
 	"github.com/voxmesh/audio-mixer/internal/pipeline"
 )
-
-// noopCodec passes through Opus frames without decode/encode.
-// In production (Docker CGO_ENABLED=1), replace with libopus-backed codec.
-type noopCodec struct{}
-
-func (n *noopCodec) Decode(opusData []byte, _ int) ([]int16, error) {
-	return make([]int16, 0), nil
-}
-
-func (n *noopCodec) Encode(pcm []int16, _ int) ([]byte, error) {
-	return nil, nil
-}
-
-var _ pipeline.Codec = (*noopCodec)(nil)
 
 func main() {
 	cfg := config.Load()
@@ -42,8 +29,14 @@ func main() {
 	defer redisClient.Close()
 	_ = redisClient
 
+	// Select codec based on build tags:
+	//   CGO_ENABLED=1 → libopus via cgo (factory_cgo.go)
+	//   otherwise     → noop pass-through (factory_noop.go)
+	codecInstance := pipeline.Codec(codec.NewCodec())
+	slogx.Info("[audio-mixer] codec ready")
+
 	// gRPC server for WS Gateway
-	grpcSrv := grpcserver.New(cfg.AudioMixerAddr, &noopCodec{})
+	grpcSrv := grpcserver.New(cfg.AudioMixerAddr, codecInstance)
 	go func() {
 		if err := grpcSrv.Start(); err != nil {
 			slogx.Fatal("gRPC: %v", err)

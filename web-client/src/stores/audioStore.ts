@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { sendWS } from '../api/ws';
+import { uuid } from '../lib/uuid';
 
 interface AudioState {
   muted: boolean;
@@ -15,7 +17,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   speaking: false,
 
   toggleMute: () => {
-    set({ muted: !get().muted });
+    const next = !get().muted;
+    set({ muted: next });
+    sendWS({
+      type: 'set_mute',
+      id: uuid(),
+      timestamp_ms: Date.now(),
+      payload: {},
+    });
   },
 
   toggleDeafen: () => {
@@ -25,6 +34,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     } else {
       set({ deafened: false });
     }
+    sendWS({
+      type: 'set_deafen',
+      id: uuid(),
+      timestamp_ms: Date.now(),
+      payload: {},
+    });
   },
 
   setSpeaking: (speaking) => set({ speaking }),

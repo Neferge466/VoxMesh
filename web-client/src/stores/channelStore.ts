@@ -37,5 +37,7 @@ export const useChannelStore = create<ChannelState>((set) => ({
   setChannels: (channels) => set({ channels: Array.isArray(channels) ? channels : [] }),
   joinChannel: (currentChannelId) => set({ currentChannelId }),
   leaveChannel: () => set({ currentChannelId: null, members: [] }),
-  setMembers: (members) => set({ members }),
+  setMembers: (m) => set((state) => ({
+    members: typeof m === 'function' ? (m as (prev: Member[]) => Member[])(state.members) : m,
+  })),
 }));

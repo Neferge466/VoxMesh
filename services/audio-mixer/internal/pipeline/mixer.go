@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -246,4 +245,3 @@ func MixPCMInt16(streams [][]int16) []int16 {
 }
 
 // Ensure unused import refs compile.
-var _ = log.Printf

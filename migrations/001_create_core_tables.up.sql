@@ -48,7 +48,7 @@ CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 -- Channels
 -- ==========================================================================
 CREATE TABLE channels (
-    id              VARCHAR(32)  PRIMARY KEY,
+    id              VARCHAR(64)  PRIMARY KEY,
     parent_id       VARCHAR(32)  REFERENCES channels(id) ON DELETE SET NULL,
     name            VARCHAR(64)  NOT NULL,
     description     VARCHAR(512),
@@ -69,7 +69,7 @@ CREATE INDEX idx_channels_deleted ON channels(deleted_at);
 CREATE TABLE channel_memberships (
     id          BIGSERIAL PRIMARY KEY,
     user_id     UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    channel_id  VARCHAR(32)  NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    channel_id  VARCHAR(64)  NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
     client_type VARCHAR(16)  NOT NULL CHECK (client_type IN ('web', 'embedded')),
     device_id   VARCHAR(64),
     joined_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

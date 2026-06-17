@@ -1,0 +1,22 @@
+# LiveKit SFU configuration for VoxMesh
+# Used for 4+ user voice channels; replaces P2P mesh for larger groups.
+#
+# API key:secret pairs — generated via env var LIVEKIT_KEYS (format: "key1: secret1, key2: secret2")
+# Redis — used for room state; configured via LIVEKIT_REDIS env var
+
+port: 7880
+rtc:
+  port_range_start: 7881
+  port_range_end: 7882
+  use_external_ip: false  # set true behind NAT, with LIVEKIT_RTC_IP env var
+  tcp_port: 7881
+  node_ip: auto
+
+keys: {}  # loaded from LIVEKIT_KEYS env var at runtime
+
+logging:
+  level: info
+
+room:
+  enabled: true
+  max_participants: 50

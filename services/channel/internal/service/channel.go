@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
+	slogx "github.com/voxmesh/pkg/log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/voxmesh/pkg/errors"
@@ -81,7 +81,7 @@ func (s *ChannelService) DeleteChannel(ctx context.Context, id string) error {
 func (s *ChannelService) JoinChannel(ctx context.Context, channelID, userID, clientType string, deviceID *string, password string) error {
 	ch, err := s.repo.FindByID(ctx, channelID)
 	if err != nil {
-		log.Printf("[channel] JoinChannel: FindByID failed channel=%s err=%v", channelID, err)
+		slogx.Info("[channel] JoinChannel: FindByID failed channel=%s err=%v", channelID, err)
 		return errors.ErrChannelNotFound
 	}
 	if ch.HasPassword && ch.PasswordHash != "" {
@@ -99,7 +99,7 @@ func (s *ChannelService) JoinChannel(ctx context.Context, channelID, userID, cli
 		if err.Error() == "already in channel" {
 			return errors.ErrAlreadyInChannel
 		}
-		log.Printf("[channel] JoinChannel: repo.Join failed channel=%s user=%s err=%v", channelID, userID, err)
+		slogx.Info("[channel] JoinChannel: repo.Join failed channel=%s user=%s err=%v", channelID, userID, err)
 		return errors.ErrInternal
 	}
 	return nil
@@ -110,7 +110,7 @@ func (s *ChannelService) LeaveChannel(ctx context.Context, channelID, userID str
 		if err.Error() == "not in channel" {
 			return errors.ErrNotInChannel
 		}
-		log.Printf("[channel] LeaveChannel: repo.Leave failed channel=%s user=%s err=%v", channelID, userID, err)
+		slogx.Info("[channel] LeaveChannel: repo.Leave failed channel=%s user=%s err=%v", channelID, userID, err)
 		return errors.ErrInternal
 	}
 	return nil
@@ -120,8 +120,16 @@ func (s *ChannelService) GetMembers(ctx context.Context, channelID string) ([]mo
 	return s.repo.GetMembers(ctx, channelID)
 }
 
-func (s *ChannelService) KickUser(ctx context.Context, channelID, userID string) error {
-	return s.repo.Leave(ctx, userID, channelID)
+func (s *ChannelService) KickUser(ctx context.Context, channelID, targetUserID, requesterID string) error {
+	// Only channel creator or admin can kick
+	ch, err := s.repo.FindByID(ctx, channelID)
+	if err != nil {
+		return errors.ErrChannelNotFound
+	}
+	if ch.CreatedBy != requesterID {
+		return errors.New(41007, "only the channel creator can kick users")
+	}
+	return s.repo.Leave(ctx, targetUserID, channelID)
 }
 
 func (s *ChannelService) MoveUser(ctx context.Context, fromChannelID, toChannelID, userID string) error {

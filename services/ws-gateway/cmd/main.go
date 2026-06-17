@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -11,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/voxmesh/pkg/auth"
 	"github.com/voxmesh/pkg/config"
 	"github.com/voxmesh/pkg/db"
@@ -19,6 +25,15 @@ import (
 
 	wshandler "github.com/voxmesh/ws-gateway/internal/handler"
 )
+
+// LiveKitClaims defines the JWT claims for LiveKit SFU access tokens.
+// LiveKit uses HS256 JWT with these specific claims.
+type LiveKitClaims struct {
+	jwt.RegisteredClaims
+	Room     string `json:"room"`
+	Metadata string `json:"metadata"`
+	Video    bool   `json:"video"`
+}
 
 func main() {
 	cfg := config.Load()
@@ -93,6 +108,110 @@ func main() {
 		return proxy.Do(c, cfg.ChannelServiceURL+c.OriginalURL())
 	})
 
+	// ── TURN credentials endpoint ──
+	turnSecret := os.Getenv("TURN_SECRET")
+	if turnSecret == "" {
+		turnSecret = "voxmesh-turn-dev-secret-change-me"
+	}
+	app.Get("/api/v1/system/turn", func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": fiber.Map{"code": 40004, "message": "missing Bearer token"},
+			})
+		}
+		claims, err := auth.ValidateAccessToken(strings.TrimPrefix(authHeader, "Bearer "))
+		if err != nil || claims.Subject == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": fiber.Map{"code": 40004, "message": "invalid token"},
+			})
+		}
+
+		expiry := time.Now().Add(24 * time.Hour).Unix()
+		username := fmt.Sprintf("%d:%s", expiry, claims.Subject)
+
+		mac := hmac.New(sha1.New, []byte(turnSecret))
+		mac.Write([]byte(username))
+		password := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+		turnHost := os.Getenv("TURN_HOST")
+		if turnHost == "" {
+			turnHost = c.Hostname()
+		}
+		return c.JSON(fiber.Map{
+			"username":  username,
+			"password":  password,
+			"ttl":       86400,
+			"stun_uri":  fmt.Sprintf("stun:%s:3478", turnHost),
+			"turn_uri":  fmt.Sprintf("turn:%s:3478", turnHost),
+			"turns_uri": fmt.Sprintf("turns:%s:5349", turnHost),
+		})
+	})
+
+	// ── LiveKit SFU token endpoint ──
+	// Generates access tokens for 4+ user voice channels.
+	// Frontend calls this when switching from P2P mesh to SFU mode.
+	livekitKey, livekitSecret := parseLiveKitKeys(os.Getenv("LIVEKIT_KEYS"))
+	app.Get("/api/v1/system/livekit-token", func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": fiber.Map{"code": 40004, "message": "missing Bearer token"},
+			})
+		}
+		claims, err := auth.ValidateAccessToken(strings.TrimPrefix(authHeader, "Bearer "))
+		if err != nil || claims.Subject == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": fiber.Map{"code": 40004, "message": "invalid token"},
+			})
+		}
+		if livekitKey == "" {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error": fiber.Map{"code": 50001, "message": "LiveKit not configured"},
+			})
+		}
+
+		channelID := c.Query("channel_id")
+		if channelID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fiber.Map{"code": 40000, "message": "channel_id query parameter required"},
+			})
+		}
+
+		now := time.Now()
+		lkClaims := LiveKitClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Issuer:    livekitKey,
+				Subject:   claims.Subject,
+				IssuedAt:  jwt.NewNumericDate(now),
+				ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour)),
+				NotBefore: jwt.NewNumericDate(now.Add(-30 * time.Second)),
+			},
+			Room:     channelID,
+			Video:    false,
+			Metadata: fmt.Sprintf(`{"username":"%s"}`, claims.Username),
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, lkClaims)
+		signed, err := token.SignedString([]byte(livekitSecret))
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": fiber.Map{"code": 50001, "message": "token generation failed"},
+			})
+		}
+
+		livekitHost := os.Getenv("LIVEKIT_HOST")
+		if livekitHost == "" {
+			livekitHost = c.Hostname()
+		}
+		return c.JSON(fiber.Map{
+			"token":    signed,
+			"url":      fmt.Sprintf("wss://%s:7880", livekitHost),
+			"room":     channelID,
+			"username": claims.Username,
+		})
+	})
+
 	// System endpoints
 	app.Get("/api/v1/system/health", func(c *fiber.Ctx) error {
 		status := fiber.Map{"status": "ok"}
@@ -128,6 +247,21 @@ func main() {
 	<-quit
 	slogx.Info("ws-gateway shutting down")
 	app.Shutdown()
+}
+
+// parseLiveKitKeys extracts the first API key:secret pair from LIVEKIT_KEYS env var.
+// Format: "key1: secret1, key2: secret2"
+func parseLiveKitKeys(keysStr string) (key, secret string) {
+	if keysStr == "" {
+		return "", ""
+	}
+	// Take the first pair before any comma
+	pair := strings.SplitN(keysStr, ",", 2)[0]
+	parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 }
 
 // wsAuthMiddleware reads JWT from query param for WebSocket upgrades.

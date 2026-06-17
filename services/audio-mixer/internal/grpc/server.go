@@ -3,7 +3,7 @@ package grpcserver
 import (
 	"context"
 	"io"
-	"log"
+	slogx "github.com/voxmesh/pkg/log"
 	"net"
 	"sync"
 	"time"
@@ -45,7 +45,7 @@ func (s *Server) Start() error {
 	)
 	audio.RegisterAudioRelayServer(s.gs, s)
 
-	log.Printf("[audio-mixer] gRPC listening on %s", s.addr)
+	slogx.Info("[audio-mixer] gRPC listening on %s", s.addr)
 	return s.gs.Serve(lis)
 }
 
@@ -106,7 +106,7 @@ func (s *Server) RelayAudio(stream audio.AudioRelay_RelayAudioServer) error {
 					func(out *audio.MixedAudioPacket) {
 						// Route output back to the WS Gateway via gRPC stream
 						if err := stream.Send(out); err != nil {
-							log.Printf("[audio-mixer] send error: %v", err)
+							slogx.Info("[audio-mixer] send error: %v", err)
 						}
 					},
 				)

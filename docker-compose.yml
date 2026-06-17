@@ -61,6 +61,37 @@ services:
       retries: 5
       start_period: 30s
 
+  coturn:
+    image: coturn/coturn:alpine
+    restart: unless-stopped
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    network_mode: host
+    environment:
+      TURN_SECRET: ${TURN_SECRET:-voxmesh-turn-dev-secret-change-me}
+      TURN_EXTERNAL_IP: ${TURN_EXTERNAL_IP:-auto}
+    # Note: network_mode: host is required for coturn to relay UDP correctly.
+    # In production behind NAT, set TURN_EXTERNAL_IP to your server's public IP.
+
+  # ==========================================================================
+  # SFU — LiveKit (for 4+ user channels, replaces P2P mesh)
+  # ==========================================================================
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --config /etc/livekit/livekit.yaml
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit/livekit.yaml:ro
+    network_mode: host
+    environment:
+      LIVEKIT_KEYS: ${LIVEKIT_KEYS:-devkey: secret}
+      LIVEKIT_REDIS: redis://127.0.0.1:6379/7
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Note: network_mode: host is required for UDP port range (7881-7882).
+    # With host networking, Redis must be reachable via 127.0.0.1 (ports mapped in docker-compose).
+
   minio:
     image: minio/minio:latest
     restart: unless-stopped

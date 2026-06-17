@@ -14,6 +14,7 @@ let processedStream: MediaStream | null = null;
 // Simple energy gate — runs AFTER RNNoise (audio is already denoised).
 // RNNoise suppresses background noise but doesn't mute silence → the gate
 // handles the final silence cut with adaptive noise floor tracking.
+// Posts { speaking: true/false } via MessagePort when gate state changes.
 const gateCode = `
 class SimpleGateProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -21,11 +22,14 @@ class SimpleGateProcessor extends AudioWorkletProcessor {
     this.envelope = 0;
     this.noiseFloor = 1e-8;
     this.holdSamples = 0;
+    this.onsetFrames = 0;
+    this.wasSpeaking = false;
   }
 
   static get parameterDescriptors() {
     return [
-      { name: 'holdMs', defaultValue: 80, min: 0, max: 500 },
+      { name: 'holdMs', defaultValue: 200, min: 0, max: 800 },
+      { name: 'threshold', defaultValue: 15, min: 2, max: 80 },
     ];
   }
 
@@ -37,27 +41,66 @@ class SimpleGateProcessor extends AudioWorkletProcessor {
     const N = src.length;
     const sr = sampleRate;
     const holdMs = parameters.holdMs[0];
+    const threshold = parameters.threshold[0];
 
     // Block energy
     let energy = 0;
     for (let i = 0; i < N; i++) energy += src[i] * src[i];
     energy /= N;
 
-    // Adaptive noise floor (very slow adaptation — α=0.998)
-    this.noiseFloor = 0.998 * this.noiseFloor + 0.002 * energy;
+    // Voice-band energy emphasis (300–3400 Hz approximates via simple bandpass
+    // on a parallel path — we use a crude approach: energy > noiseFloor*threshold
+    // still gates on total energy, but onset detection filters short transients).
+    const thresholdEnergy = this.noiseFloor * threshold;
+    const above = energy > thresholdEnergy;
 
-    // Open gate when energy > 5x noise floor
-    if (energy > this.noiseFloor * 5) {
+    // Attack onset detection: require N consecutive frames above threshold
+    // before opening the gate. Keyboard clicks are single-frame transients
+    // (<3ms) that get filtered out; voice onsets last 20–50ms so they pass.
+    if (above) {
+      this.onsetFrames++;
+    } else {
+      this.onsetFrames = 0;
+    }
+
+    const ATTACK_ONSET_FRAMES = 3; // ~8ms at 48kHz/128
+    const gateOpen = this.onsetFrames >= ATTACK_ONSET_FRAMES;
+
+    // Adaptive noise floor — only update during silence so it tracks
+    // background noise, not speech energy. Freeze during speech.
+    if (!above) {
+      this.noiseFloor = 0.998 * this.noiseFloor + 0.002 * energy;
+    }
+
+    if (gateOpen) {
       this.holdSamples = (holdMs / 1000) * sr;
     }
 
-    const target = (energy > this.noiseFloor * 5 || this.holdSamples > 0) ? 1 : 0;
-
-    // Smooth envelope (linear ramp for simplicity)
-    if (target === 1) {
-      this.envelope = Math.min(1, this.envelope + 0.25);
+    // Soft-knee expander: below threshold, attenuate proportionally
+    // instead of hard mute. Avoids jarring cuts and lets borderline
+    // signals through at reduced level.
+    let gateTarget;
+    if (gateOpen || this.holdSamples > 0) {
+      gateTarget = 1;
     } else {
-      this.envelope = Math.max(0, this.envelope - 0.05);
+      // Ratio: below threshold, gain = (energy/thresholdEnergy)^2
+      // Square-law expander approximates 2:1 expansion in linear domain.
+      const ratio = energy / Math.max(thresholdEnergy, 1e-12);
+      gateTarget = Math.max(0.05, ratio * ratio);
+    }
+
+    // Smooth envelope
+    if (gateTarget > this.envelope) {
+      this.envelope = Math.min(gateTarget, this.envelope + 0.25);
+    } else {
+      this.envelope = Math.max(gateTarget, this.envelope - 0.04);
+    }
+
+    // Detect speaking state transitions
+    const isSpeaking = this.envelope > 0.3;
+    if (isSpeaking !== this.wasSpeaking) {
+      this.wasSpeaking = isSpeaking;
+      this.port.postMessage({ speaking: isSpeaking });
     }
 
     for (let i = 0; i < N; i++) {
@@ -162,13 +205,19 @@ export async function startCapture(): Promise<MediaStream> {
 
   const lpFilter = audioCtx.createBiquadFilter();
   lpFilter.type = 'lowpass';
-  lpFilter.frequency.value = 6000;
+  lpFilter.frequency.value = 4000;
   lpFilter.Q.value = 0.7;
 
   rnnoiseNode = new AudioWorkletNode(audioCtx, NoiseSuppressorWorklet_Name);
   gateNode = new AudioWorkletNode(audioCtx, 'simple-gate', {
-    parameterData: { holdMs: 80 },
+    parameterData: { holdMs: 200, threshold: 15 },
   });
+
+  gateNode.port.onmessage = (e: MessageEvent) => {
+    if (speakingCallback && e.data && typeof e.data.speaking === 'boolean') {
+      speakingCallback(e.data.speaking);
+    }
+  };
 
   const zeroGain = audioCtx.createGain();
   zeroGain.gain.value = 0;
@@ -184,6 +233,22 @@ export async function startCapture(): Promise<MediaStream> {
   processedStream = destNode.stream;
   console.log('[audio] HP+LP → RNNoise → gate active');
   return processedStream;
+}
+
+let speakingCallback: ((speaking: boolean) => void) | null = null;
+
+export function onSpeakingChange(cb: ((speaking: boolean) => void) | null): void {
+  speakingCallback = cb;
+}
+
+export function setVADParams(threshold: number, holdMs?: number): void {
+  if (!gateNode) return;
+  const thresh = gateNode.parameters.get('threshold');
+  if (thresh) thresh.value = threshold;
+  if (holdMs !== undefined) {
+    const hold = gateNode.parameters.get('holdMs');
+    if (hold) hold.value = holdMs;
+  }
 }
 
 export function getLocalStream(): MediaStream | null {

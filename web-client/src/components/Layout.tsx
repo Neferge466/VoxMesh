@@ -1,5 +1,6 @@
-import { type ReactNode, useState, useCallback } from 'react';
+import { type ReactNode, useState, useCallback, useEffect } from 'react';
 import { ThemeToggle } from './ThemeToggle';
+import { getWSState, onWSStateChange, type WSState } from '../api/ws';
 
 interface Props {
   children: ReactNode;
@@ -9,7 +10,14 @@ interface Props {
 
 export function Layout({ children, sidebar, headerRight }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [wsState, setWsState] = useState<WSState>(getWSState);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  useEffect(() => {
+    return onWSStateChange(setWsState);
+  }, []);
+
+  const stateLabel = wsState === 'connected' ? 'Connected' : wsState === 'connecting' ? 'Connecting…' : 'Offline';
 
   return (
     <div className="app-shell">
@@ -26,6 +34,7 @@ export function Layout({ children, sidebar, headerRight }: Props) {
           )}
           <span className="header-logo">VX</span>
           <h1 className="header-title">VoxMesh</h1>
+          <span className={`ws-status ws-${wsState}`} title={stateLabel} />
         </div>
         <div className="header-actions">
           {headerRight ?? <ThemeToggle />}

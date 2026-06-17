@@ -27,6 +27,19 @@ function MainContent() {
             Cross-device voice communication system.
             Join a channel to start speaking.
           </p>
+          <div className="welcome-actions">
+            <button
+              className="welcome-btn welcome-btn-primary"
+              onClick={() => {
+                const input = document.getElementById('channel-create-input') as HTMLInputElement | null;
+                input?.focus();
+                input?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              + Create Channel
+            </button>
+            <span className="welcome-hint">or select a channel from the sidebar</span>
+          </div>
         </div>
       </div>
     );

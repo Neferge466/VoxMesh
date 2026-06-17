@@ -22,7 +22,7 @@ func (r *ChannelRepo) Create(ctx context.Context, req model.CreateChannelRequest
 	var ch model.Channel
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO channels (id, parent_id, name, description, max_users, codec_quality, password_hash, is_temporary, temporary_ttl_min, created_by)
-		 VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 VALUES (replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5, $6, $7, $8, $9)
 		 RETURNING id, parent_id, name, description, sort_order, max_users, codec_quality, is_temporary, temporary_ttl_min, created_by, created_at, updated_at`,
 		req.ParentID, req.Name, req.Description, req.MaxUsers, req.CodecQuality, req.Password, req.IsTemporary, req.TemporaryTTLMin, createdBy,
 	).Scan(&ch.ID, &ch.ParentID, &ch.Name, &ch.Description, &ch.SortOrder, &ch.MaxUsers, &ch.CodecQuality, &ch.IsTemporary, &ch.TemporaryTTLMin, &ch.CreatedBy, &ch.CreatedAt, &ch.UpdatedAt)

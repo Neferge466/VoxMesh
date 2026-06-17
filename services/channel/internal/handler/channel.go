@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"log"
+	slogx "github.com/voxmesh/pkg/log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/voxmesh/pkg/auth"
@@ -100,7 +100,7 @@ func (h *ChannelHandler) Join(c *fiber.Ctx) error {
 	c.BodyParser(&req)
 
 	if err := h.svc.JoinChannel(c.Context(), c.Params("id"), claims.Subject, "web", nil, req.Password); err != nil {
-		log.Printf("[channel] join failed: channel=%s user=%s err=%v", c.Params("id"), claims.Subject, err)
+		slogx.Info("[channel] join failed: channel=%s user=%s err=%v", c.Params("id"), claims.Subject, err)
 		return handleError(c, err)
 	}
 	return c.JSON(fiber.Map{"message": "joined"})
@@ -124,7 +124,9 @@ func (h *ChannelHandler) Members(c *fiber.Ctx) error {
 }
 
 func (h *ChannelHandler) Kick(c *fiber.Ctx) error {
-	if err := h.svc.KickUser(c.Context(), c.Params("id"), c.Params("uid")); err != nil {
+	claims := c.Locals("claims").(*auth.Claims)
+
+	if err := h.svc.KickUser(c.Context(), c.Params("id"), c.Params("uid"), claims.Subject); err != nil {
 		return handleError(c, err)
 	}
 	return c.JSON(fiber.Map{"message": "user kicked"})

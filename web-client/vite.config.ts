@@ -17,6 +17,7 @@ export default defineConfig({
         manualChunks: {
           rnnoise: ['@timephy/rnnoise-wasm'],
           react: ['react', 'react-dom'],
+          livekit: ['livekit-client'],
         },
       },
     },

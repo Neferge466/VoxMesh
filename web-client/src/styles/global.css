@@ -82,11 +82,36 @@ input:focus, textarea:focus {
 }
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--c-muted);
-  opacity: .3;
+/* Sidebar / channel list: hidden scrollbar (still scrollable) */
+.app-sidebar, .channel-list, .member-list {
+  scrollbar-width: none;
+}
+.app-sidebar::-webkit-scrollbar,
+.channel-list::-webkit-scrollbar,
+.member-list::-webkit-scrollbar { display: none; }
+
+/* Chat messages: thin visible scrollbar */
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+}
+.chat-messages::-webkit-scrollbar { display: block; width: 6px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: 3px;
+}
+
+/* Main content: thin visible scrollbar */
+.app-main {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+}
+.app-main::-webkit-scrollbar { display: block; width: 6px; }
+.app-main::-webkit-scrollbar-track { background: transparent; }
+.app-main::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: 3px;
 }
 
 /* ── Selection ── */

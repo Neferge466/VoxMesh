@@ -5,6 +5,7 @@
 # Build
 /services/*/cmd/*.exe
 /services/*/cmd/voxmesh-*
+/cmd
 
 # IDE
 .idea/

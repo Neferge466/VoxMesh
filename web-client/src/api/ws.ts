@@ -3,9 +3,12 @@ import { uuid } from '../lib/uuid';
 type Listener = (data: unknown) => void;
 type BinaryListener = (data: ArrayBuffer) => void;
 
+export type WSState = 'connecting' | 'connected' | 'disconnected';
+
 const listeners = new Map<string, Set<Listener>>();
 const binaryListeners = new Set<BinaryListener>();
 const pendingMessages: object[] = [];
+const stateListeners = new Set<(state: WSState) => void>();
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -13,6 +16,22 @@ let reconnectCount = 0;
 let wsUrl = '';
 let stopped = false;
 let lastChannelId: string | null = null;
+let _wsState: WSState = 'disconnected';
+
+function setWSState(state: WSState) {
+  if (_wsState === state) return;
+  _wsState = state;
+  stateListeners.forEach((fn) => fn(state));
+}
+
+export function getWSState(): WSState {
+  return _wsState;
+}
+
+export function onWSStateChange(fn: (state: WSState) => void): () => void {
+  stateListeners.add(fn);
+  return () => { stateListeners.delete(fn); };
+}
 
 export function connectWS(url: string) {
   stopped = false;
@@ -38,10 +57,12 @@ function doConnect() {
     ws = null;
   }
 
+  setWSState('connecting');
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
     console.log('[ws] open, pending=%d, channel=%s', pendingMessages.length, lastChannelId);
+    setWSState('connected');
     reconnectCount = 0;
     if (lastChannelId) {
       pendingMessages.unshift({ type: 'join_channel', id: uuid(), timestamp_ms: Date.now(), payload: { channel_id: lastChannelId } });
@@ -74,6 +95,7 @@ function doConnect() {
 
   ws.onclose = () => {
     ws = null;
+    setWSState('disconnected');
     if (stopped || !wsUrl) return;
     const delay = Math.min(2000 * Math.pow(2, reconnectCount), 30000);
     reconnectCount++;
@@ -89,6 +111,7 @@ export function disconnectWS() {
   wsUrl = '';
   lastChannelId = null;
   reconnectCount = 0;
+  setWSState('disconnected');
 }
 
 export function sendWS(msg: object) {

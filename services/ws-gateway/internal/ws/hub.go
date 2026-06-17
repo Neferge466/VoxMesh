@@ -140,8 +140,8 @@ func (c *Client) WritePump() {
 // Clients are keyed by a unique ConnID (not UserID) so the same user
 // can connect from multiple devices simultaneously.
 type Hub struct {
-	clients      map[string]*Client   // ConnID → Client
-	userConns    map[string][]string  // UserID → []ConnID
+	clients      map[string]*Client  // ConnID → Client
+	userConns    map[string][]string // UserID → []ConnID
 	connSeq      atomic.Uint64
 	Register     chan *Client
 	Unregister   chan *Client
@@ -240,6 +240,28 @@ func (h *Hub) BroadcastToChannelExcept(channelID, excludeUserID string, msg inte
 	}
 }
 
+func (h *Hub) broadcastPresence(channelID string) {
+	var members []Member
+	h.mu.RLock()
+	for _, c := range h.clients {
+		if c.ChannelID == channelID {
+			members = append(members, Member{
+				UserID:      c.UserID,
+				DisplayName: c.DisplayName,
+				Speaking:    false,
+				Muted:       c.Muted,
+				ClientType:  "web",
+			})
+		}
+	}
+	h.mu.RUnlock()
+	h.BroadcastToChannel(channelID,
+		NewEnvelope(TypePresenceUpdate, "", PresenceUpdatePayload{
+			ChannelID: channelID,
+			Members:   members,
+		}))
+}
+
 func (h *Hub) handleJSON(client *Client, data []byte) {
 	var env Envelope
 	if err := json.Unmarshal(data, &env); err != nil {
@@ -300,26 +322,7 @@ func (h *Hub) handleJSON(client *Client, data []byte) {
 		client.ChannelID = ""
 		client.SendJSON(NewEnvelope(TypeChannelLeft, env.ID, nil))
 		if oldCh != "" {
-			// Gather remaining members
-			var members []Member
-			h.mu.RLock()
-			for _, c := range h.clients {
-				if c.ChannelID == oldCh {
-					members = append(members, Member{
-						UserID:      c.UserID,
-						DisplayName: c.DisplayName,
-						Speaking:    false,
-						Muted:       c.Muted,
-						ClientType:  "web",
-					})
-				}
-			}
-			h.mu.RUnlock()
-			h.BroadcastToChannel(oldCh,
-				NewEnvelope(TypePresenceUpdate, "", PresenceUpdatePayload{
-					ChannelID: oldCh,
-					Members:   members,
-				}))
+			h.broadcastPresence(oldCh)
 		}
 
 	case TypeStartSpeaking:
@@ -339,9 +342,15 @@ func (h *Hub) handleJSON(client *Client, data []byte) {
 
 	case TypeSetMute:
 		client.Muted = !client.Muted
+		if client.ChannelID != "" {
+			h.broadcastPresence(client.ChannelID)
+		}
 
 	case TypeSetDeafen:
 		client.Deafened = !client.Deafened
+		if client.ChannelID != "" {
+			h.broadcastPresence(client.ChannelID)
+		}
 
 	case TypeChatMessage:
 		if client.ChannelID != "" {
@@ -366,8 +375,8 @@ func (h *Hub) handleJSON(client *Client, data []byte) {
 	case TypeSDPAnswer:
 		var p SDPSignalPayload
 		json.Unmarshal(env.Payload, &p)
-		targetUserID := p.SenderID            // save before overwriting
-		p.SenderID = client.UserID            // overwrite so receiver knows who answered
+		targetUserID := p.SenderID       // save before overwriting
+		p.SenderID = client.UserID       // overwrite so receiver knows who answered
 		for _, target := range h.GetClientsByUser(targetUserID) {
 			if target != nil {
 				target.SendJSON(NewEnvelope(TypeSDPAnswer, env.ID, p))
