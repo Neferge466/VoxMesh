@@ -52,5 +52,3 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/voxmesh-${{ matrix.service }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
