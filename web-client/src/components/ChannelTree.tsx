@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
 import { useChannelStore, type Channel } from '../stores/channelStore';
-import { useAuthStore } from '../stores/authStore';
 import * as channelApi from '../api/channels';
 import { sendWS, setActiveChannel } from '../api/ws';
 import { uuid } from '../lib/uuid';
