@@ -1,0 +1,30 @@
+# Production override — uses pre-built GHCR images instead of local build.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  auth-service:
+    image: ghcr.io/neferge466/voxmesh-auth-service:latest
+
+  channel-service:
+    image: ghcr.io/neferge466/voxmesh-channel-service:latest
+
+  ws-gateway:
+    image: ghcr.io/neferge466/voxmesh-ws-gateway:latest
+
+  audio-mixer:
+    image: ghcr.io/neferge466/voxmesh-audio-mixer:latest
+
+  presence-manager:
+    image: ghcr.io/neferge466/voxmesh-presence-manager:latest
+
+  gateway-coordinator:
+    image: ghcr.io/neferge466/voxmesh-gateway-coordinator:latest
+
+  command-handler:
+    image: ghcr.io/neferge466/voxmesh-command-handler:latest
+
+  notification-service:
+    image: ghcr.io/neferge466/voxmesh-notification-service:latest
+
+  frontend:
+    image: ghcr.io/neferge466/voxmesh-frontend:latest
