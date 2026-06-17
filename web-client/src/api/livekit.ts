@@ -20,7 +20,7 @@ interface LiveKitToken {
 }
 
 async function fetchToken(channelId: string): Promise<LiveKitToken> {
-  const token = useAuthStore.getState().token;
+  const token = useAuthStore.getState().accessToken;
   if (!token) throw new Error('not authenticated');
 
   const resp = await fetch(`${API_HOST}/api/v1/system/livekit-token?channel_id=${encodeURIComponent(channelId)}`, {

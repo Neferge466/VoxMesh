@@ -1,6 +1,6 @@
 module github.com/voxmesh/pkg
 
-go 1.26.4
+go 1.22
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1

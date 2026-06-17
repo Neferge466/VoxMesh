@@ -19,10 +19,9 @@ let iceConfig: RTCConfiguration = {
 };
 
 let turnCreds: TURNCredentials | null = null;
-let turnFetchPromise: Promise<void> | null = null;
 
 async function fetchTURNCredentials(): Promise<void> {
-  const token = useAuthStore.getState().token;
+  const token = useAuthStore.getState().accessToken;
   if (!token) return;
   try {
     const resp = await fetch(`${API_HOST}/api/v1/system/turn`, {
@@ -30,6 +29,7 @@ async function fetchTURNCredentials(): Promise<void> {
     });
     if (resp.ok) {
       turnCreds = await resp.json();
+      if (!turnCreds) return;
       iceConfig = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -172,7 +172,7 @@ export function setupSignaling(): void {
 
   // Fetch TURN credentials in background
   if (!turnCreds) {
-    turnFetchPromise = fetchTURNCredentials();
+    fetchTURNCredentials();
   }
 
   unsubs = [

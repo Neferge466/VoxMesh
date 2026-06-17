@@ -14,10 +14,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          rnnoise: ['@timephy/rnnoise-wasm'],
-          react: ['react', 'react-dom'],
-          livekit: ['livekit-client'],
+        manualChunks(id: string) {
+          if (id.includes('node_modules/@timephy/rnnoise-wasm')) return 'rnnoise';
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'react';
+          if (id.includes('node_modules/livekit-client')) return 'livekit';
         },
       },
     },

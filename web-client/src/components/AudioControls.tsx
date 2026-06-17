@@ -22,7 +22,7 @@ export function AudioControls() {
   const leaveChannel = useChannelStore((s) => s.leaveChannel);
   const members = useChannelStore((s) => s.members);
   const memberCount = members.length;
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
 
   const useSFU = memberCount >= SFU_THRESHOLD;
   const modeRef = useRef<'p2p' | 'sfu' | 'none'>('none');

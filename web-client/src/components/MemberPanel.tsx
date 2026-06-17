@@ -83,7 +83,7 @@ export function MemberPanel() {
   const currentId = useChannelStore((s) => s.currentChannelId);
   const setMembers = useChannelStore((s) => s.setMembers);
   const userId = useAuthStore((s) => s.user?.id);
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
 
   const currentIdRef = useRef(currentId);
   currentIdRef.current = currentId;

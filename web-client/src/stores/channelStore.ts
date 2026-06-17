@@ -27,7 +27,7 @@ interface ChannelState {
   setChannels: (ch: Channel[]) => void;
   joinChannel: (id: string) => void;
   leaveChannel: () => void;
-  setMembers: (m: Member[]) => void;
+  setMembers: (m: Member[] | ((prev: Member[]) => Member[])) => void;
 }
 
 export const useChannelStore = create<ChannelState>((set) => ({

@@ -62,7 +62,7 @@ function ChannelItem({ ch, depth = 0, token }: { ch: Channel; depth?: number; to
       const raw = await channelApi.getMembers(token, ch.id);
       setMembers(raw.map((m) => ({
         user_id: m.user_id,
-        display_name: (m as Record<string, unknown>).display_name as string,
+        display_name: (m as unknown as Record<string, unknown>).display_name as string,
         client_type: m.client_type,
         speaking: false,
         muted: false,
@@ -140,7 +140,6 @@ export function ChannelTree({ token }: Props) {
   const setChannels = useChannelStore((s) => s.setChannels);
   const joinChannel = useChannelStore((s) => s.joinChannel);
   const setMembers = useChannelStore((s) => s.setMembers);
-  const user = useAuthStore((s) => s.user);
   const [newName, setNewName] = useState('');
   const [newPw, setNewPw] = useState('');
   const [creating, setCreating] = useState(false);
@@ -167,7 +166,7 @@ export function ChannelTree({ token }: Props) {
       const raw = await channelApi.getMembers(token, ch.id);
       setMembers(raw.map((m) => ({
         user_id: m.user_id,
-        display_name: (m as Record<string, unknown>).display_name as string,
+        display_name: (m as unknown as Record<string, unknown>).display_name as string,
         client_type: m.client_type,
         speaking: false,
         muted: false,
