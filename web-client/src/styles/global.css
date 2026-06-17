@@ -1,0 +1,104 @@
+/* ── VoxMesh Global Styles — Swiss New Wave ── */
+
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--f-body);
+  font-size: var(--t-base);
+  line-height: 1.6;
+  color: var(--c-text);
+  background: var(--c-bg);
+  min-height: 100svh;
+  overflow-x: hidden;
+}
+
+/* ── Swiss New Wave: exposed grid lines on body ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-accent) 0px,
+    var(--c-accent) 1px,
+    transparent 1px,
+    transparent 80px
+  );
+  opacity: .06;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--f-display);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+}
+
+h1 { font-size: var(--t-hero); }
+h2 { font-size: var(--t-2xl); }
+h3 { font-size: var(--t-xl); }
+
+a { color: var(--c-accent-2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  font-family: var(--f-body);
+  font-size: var(--t-sm);
+  border: none;
+  background: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+input, textarea {
+  font-family: var(--f-body);
+  font-size: var(--t-base);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+  padding: var(--s-2) var(--s-3);
+  min-height: 44px;
+}
+input:focus, textarea:focus {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -1px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-muted);
+  opacity: .3;
+}
+
+/* ── Selection ── */
+::selection {
+  background: var(--c-accent);
+  color: #FFF;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

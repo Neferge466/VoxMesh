@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  backend:
+    name: Go Backend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - auth
+          - channel
+          - ws-gateway
+          - gateway-coordinator
+          - audio-mixer
+          - presence
+          - command-handler
+          - notification
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: services/${{ matrix.service }}/go.sum
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./... -count=1 -timeout 60s
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web-client/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+
+  packages-tests:
+    name: Shared Packages Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/pkg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: services/pkg/go.sum
+      - name: Test
+        run: go test ./... -count=1 -v

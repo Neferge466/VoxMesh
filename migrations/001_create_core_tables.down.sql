@@ -1,0 +1,14 @@
+BEGIN;
+
+DROP TABLE IF EXISTS mqtt_acl;
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS mesh_devices;
+DROP TABLE IF EXISTS gateways;
+DROP TABLE IF EXISTS channel_memberships;
+DROP TABLE IF EXISTS channels;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS users;
+
+COMMIT;

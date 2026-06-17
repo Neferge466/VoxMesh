@@ -1,0 +1,60 @@
+# Environment
+.env
+*.local
+
+# Build
+/services/*/cmd/*.exe
+/services/*/cmd/voxmesh-*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+pgdata/
+redisdata/
+emqxdata/
+emqxlog/
+miniodata/
+grafanadata/
+
+# Secrets & certs
+secrets/*.pem
+certs/*.pem
+certs/*.key
+certs/*.crt
+!certs/.gitkeep
+
+# Go vendor
+/services/*/vendor/
+
+# Runtime logs & PIDs
+logs/
+*.log
+.dev-pids
+
+# Claude Code (local AI tooling, not project source)
+.claude/
+CLAUDE.md
+WEB-DESIGN-SKILL.md
+
+# Redundant go.work (root-level go.work is authoritative)
+services/go.work
+services/go.work.sum
+
+# WSL-specific network setup (contains hardcoded local IPs)
+scripts/setup-network.sh
+
+# Test scripts (keep out of repo)
+test_api.sh
+seed_channels.sh
+
+# Node
+web-client/node_modules/
+web-client/dist/

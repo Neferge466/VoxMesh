@@ -1,0 +1,13 @@
+go 1.26.4
+
+use (
+	./services/pkg
+	./services/auth
+	./services/channel
+	./services/audio-mixer
+	./services/presence
+	./services/gateway-coordinator
+	./services/ws-gateway
+	./services/command-handler
+	./services/notification
+)

@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package audio;
+
+option go_package = "github.com/voxmesh/audio-mixer/api/audio;audio";
+
+// AudioRelay streams audio frames between the WS Gateway and Audio Mixer.
+service AudioRelay {
+  // Bidirectional stream: gateway sends client audio, mixer sends mixed audio back.
+  rpc RelayAudio(stream AudioPacket) returns (stream MixedAudioPacket);
+}
+
+// AudioPacket represents a single audio frame from a client (web or embedded).
+message AudioPacket {
+  string user_id = 1;
+  string channel_id = 2;
+  uint32 seq = 3;
+  int64 timestamp_ms = 4;
+  uint32 sample_rate = 5;
+  float energy = 6;
+  bool is_silence = 7;
+  bytes opus_data = 8;
+}
+
+// MixedAudioPacket is the N-1 mixed output for a specific listener.
+message MixedAudioPacket {
+  string channel_id = 1;
+  string listener_user_id = 2;
+  uint32 seq = 3;
+  int64 timestamp_ms = 4;
+  uint32 speaker_count = 5;
+  repeated string active_speakers = 6;
+  bytes mixed_opus_data = 7;
+}

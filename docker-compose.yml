@@ -1,0 +1,350 @@
+version: '3.9'
+
+services:
+  # ==========================================================================
+  # Infrastructure
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: voxmesh
+      POSTGRES_USER: voxmesh
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-voxmesh_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voxmesh"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  emqx:
+    image: emqx/emqx:5.7
+    restart: unless-stopped
+    environment:
+      EMQX_NAME: voxmesh-broker
+      EMQX_HOST: emqx
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - emqxdata:/opt/emqx/data
+      - emqxlog:/opt/emqx/log
+    ports:
+      - "1883:1883"    # MQTT (dev)
+      - "8883:8883"    # MQTT/TLS
+      - "8083:8083"    # MQTT/WebSocket
+      - "18083:18083"  # Dashboard
+    healthcheck:
+      test: ["CMD-SHELL", "emqx ping 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Console
+
+  # ==========================================================================
+  # Database Migration (one-shot)
+  # ==========================================================================
+  migrate:
+    image: migrate/migrate:v4
+    restart: "no"
+    volumes:
+      - ./migrations:/migrations:ro
+    entrypoint: ["migrate"]
+    command:
+      - -path=/migrations
+      - -database=postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ==========================================================================
+  # VoxMesh Services
+  # ==========================================================================
+  auth-service:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      JWT_PRIVATE_KEY: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY: /run/secrets/jwt_public.pem
+      HTTP_PORT: "8080"
+    volumes:
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/health 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  channel-service:
+    build:
+      context: ./services/channel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
+      REDIS_URL: redis://redis:6379/1
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_channel
+      HTTP_PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+    ports:
+      - "8082:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/health 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  audio-mixer:
+    build:
+      context: ./services/audio-mixer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/2
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_audio_mixer
+      GRPC_PORT: "9000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+
+  presence-manager:
+    build:
+      context: ./services/presence
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/3
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_presence
+    depends_on:
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+
+  gateway-coordinator:
+    build:
+      context: ./services/gateway-coordinator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
+      REDIS_URL: redis://redis:6379/4
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_gateway_coord
+      HTTP_PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+    ports:
+      - "8084:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/health 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  ws-gateway:
+    build:
+      context: ./services/ws-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8080
+      CHANNEL_SERVICE_URL: http://channel-service:8080
+      REDIS_URL: redis://redis:6379/5
+      MQTT_BROKER: tcp://emqx:1883
+      AUDIO_MIXER_ADDR: audio-mixer:9000
+      JWT_PRIVATE_KEY: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY: /run/secrets/jwt_public.pem
+      HTTP_PORT: "8080"
+    volumes:
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      channel-service:
+        condition: service_healthy
+    ports:
+      - "8080:8080"    # REST API + WebSocket
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/health 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  command-handler:
+    build:
+      context: ./services/command-handler
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      CHANNEL_SERVICE_URL: http://channel-service:8080
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_command
+    depends_on:
+      channel-service:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/6
+      MQTT_BROKER: tcp://emqx:1883
+      MQTT_CLIENT_ID: svc_notification
+    depends_on:
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+
+  # ==========================================================================
+  # Frontend (SPA + API proxy)
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      ws-gateway:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+
+  # ==========================================================================
+  # Reverse Proxy (TLS termination — production only, optional)
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      ws-gateway:
+        condition: service_healthy
+
+  # ==========================================================================
+  # Observability
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - prometheusdata:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3000:3000"
+
+  # Postgres metrics exporter
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgres://voxmesh:${DB_PASSWORD:-voxmesh_dev}@postgres:5432/voxmesh?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Redis metrics exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  emqxdata:
+  emqxlog:
+  miniodata:
+  prometheusdata:
+  grafanadata:
